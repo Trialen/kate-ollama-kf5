@@ -1,7 +1,9 @@
 # Kate-Ollama-kf5
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)   
 
-**Experimental** The original plugin refactored to use the kf5 framework.
+**Experimental** 
+
+The original plugin refactored to use the kf5 framework. Tested on Kubuntu 24.04 LTS.
 
 Write a text that starts with `// AI: [your prompt]`.
 
