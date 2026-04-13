@@ -1,7 +1,7 @@
-# Kate-Ollama
+# Kate-Ollama-kf5
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)   
 
-**Experimental** plugin to integrate Ollama in Kate.
+**Experimental** The original plugin refactored to use the kf5 framework.
 
 Write a text that starts with `// AI: [your prompt]`.
 
