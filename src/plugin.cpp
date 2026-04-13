@@ -33,8 +33,6 @@
 #include <QRegularExpression>
 #include <QString>
 
-using namespace Qt::Literals::StringLiterals;
-
 K_PLUGIN_FACTORY_WITH_JSON(KateOllamaFactory, "kateollama.json", registerPlugin<KateOllamaPlugin>();)
 
 enum MessageType {
@@ -72,7 +70,7 @@ KateOllamaView::KateOllamaView(KateOllamaPlugin *plugin, KTextEditor::MainWindow
     , m_plugin(plugin)
     , m_mainWindow(mainwindow)
 {
-    KXMLGUIClient::setComponentName(u"kateollama"_s, i18n("Kate-Ollama"));
+    KXMLGUIClient::setComponentName(QStringLiteral("kateollama"), i18n("Kate-Ollama"));
     KConfigGroup group(KSharedConfig::openConfig(), "KateOllama");
     
     m_plugin->model = group.readEntry("Model");
@@ -83,18 +81,18 @@ KateOllamaView::KateOllamaView(KateOllamaPlugin *plugin, KTextEditor::MainWindow
     QAction *a = ac->addAction(QStringLiteral("kateollama"));
     a->setText(i18n("Run Ollama"));
     a->setIcon(QIcon::fromTheme(QStringLiteral("debug-run")));
-    KActionCollection::setDefaultShortcut(a, QKeySequence((Qt::CTRL | Qt::Key_Semicolon)));
+    ac->setDefaultShortcut(a, QKeySequence(Qt::CTRL | Qt::Key_Semicolon));
     connect(a, &QAction::triggered, this, &KateOllamaView::onSinglePrompt);
-    
+
     QAction *a2 = ac->addAction(QStringLiteral("kateollama-full-prompt"));
     a2->setText(i18n("Run Ollama Full Text"));
     a2->setIcon(QIcon::fromTheme(QStringLiteral("debug-run")));
-    KActionCollection::setDefaultShortcut(a2, QKeySequence((Qt::CTRL | Qt::SHIFT | Qt::Key_Semicolon)));
+    ac->setDefaultShortcut(a2, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Semicolon));
     connect(a2, &QAction::triggered, this, &KateOllamaView::onFullPrompt);
 
     QAction *a3 = ac->addAction(QStringLiteral("kateollama-command"));
     a3->setText(i18n("Add Ollama Command"));
-    KActionCollection::setDefaultShortcut(a3, QKeySequence((Qt::CTRL | Qt::Key_Slash)));
+    ac->setDefaultShortcut(a3, QKeySequence(Qt::CTRL | Qt::Key_Slash));
     connect(a3, &QAction::triggered, this, &KateOllamaView::printCommand);
 
     m_mainWindow->guiFactory()->addClient(this);
@@ -129,13 +127,13 @@ void KateOllamaView::ollamaRequest(QString prompt)
 
     QNetworkReply *reply = manager->post(request, doc.toJson());
 
-    connect(reply, &QNetworkReply::metaDataChanged, this, [=, this]() {
+    connect(reply, &QNetworkReply::metaDataChanged, this, [=]() {
         KTextEditor::Cursor cursor = view->cursorPosition();
         document->insertText(cursor, "\n");
         showMessage(QStringLiteral("Info: Request started..."), MessageType::Info, m_mainWindow);
     });
 
-    connect(reply, &QNetworkReply::readyRead, this, [=, this]() {
+    connect(reply, &QNetworkReply::readyRead, this, [=]() {
         QString responseChunk = reply->readAll();
         QJsonDocument jsonDoc = QJsonDocument::fromJson(responseChunk.toUtf8());
         QJsonObject jsonObj = jsonDoc.object();
@@ -148,7 +146,7 @@ void KateOllamaView::ollamaRequest(QString prompt)
         }
     });
 
-    connect(reply, &QNetworkReply::finished, this, [=, this]() {
+    connect(reply, &QNetworkReply::finished, this, [=]() {
         if (reply->error() != QNetworkReply::NoError) {
             showMessage(QStringLiteral("Error: ").arg(reply->errorString()), MessageType::Error, m_mainWindow);
             qDebug() << "Error:" << reply->errorString();
