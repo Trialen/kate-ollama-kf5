@@ -27,5 +27,5 @@ ninja install
 If you are developing a symlink as root can simplify the loading of the latest plugin build:
 
 ```
-ln -s /your-folder/build/plugins/kf6/ktexteditor/kateollama.so /usr/lib/x86_64-linux-gnu/qt6/plugins/kf6/ktexteditor/kateollama.so
+ln -s /your-folder/build/plugins/kf5/ktexteditor/kateollama.so /usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/ktexteditor/kateollama.so
 ```
