@@ -13,6 +13,7 @@ class KateOllamaPlugin;
 class QLabel;
 class QComboBox;
 class QLineEdit;
+class QRadioButton;
 class QTextEdit;
 class QWidget;
 
@@ -40,6 +41,9 @@ private:
     QComboBox *m_modelsComboBox;
     QTextEdit *m_systemPromptEdit;
     QLineEdit *m_ollamaURLText;
+    QRadioButton *m_radioCurrentDoc;
+    QRadioButton *m_radioNamedDoc;
+    QLineEdit *m_docNameEdit;
     QLabel *m_infoLabel;
 
     KateOllamaPlugin *const m_plugin;

@@ -13,15 +13,17 @@
 #include <KTextEditor/ConfigPage>
 
 #include <QComboBox>
+#include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
-#include <QTextEdit>
 #include <QLineEdit>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRadioButton>
+#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QList>
 #include <algorithm>
@@ -63,13 +65,35 @@ KateOllamaConfigPage::KateOllamaConfigPage(QWidget *parent, KateOllamaPlugin *pl
         auto *hl = new QHBoxLayout;
 
         auto label = new QLabel(i18n("System Prompt"));
-        hl->addWidget(label);
+        hl->addWidget(label, 0, Qt::AlignTop);
 
         m_systemPromptEdit = new QTextEdit(this);
         m_systemPromptEdit->setGeometry(100, 100, 300, 200);
         hl->addWidget(m_systemPromptEdit);
 
         layout->addLayout(hl);
+    }
+
+    // Response Destination
+    {
+        auto label = new QLabel(i18n("Response Destination"));
+        layout->addWidget(label);
+
+        auto *hl1 = new QHBoxLayout;
+        m_radioCurrentDoc = new QRadioButton(i18n("Current document"), this);
+        m_radioCurrentDoc->setChecked(true);
+        hl1->addWidget(m_radioCurrentDoc);
+        hl1->addStretch();
+        layout->addLayout(hl1);
+
+        auto *hl2 = new QHBoxLayout;
+        m_radioNamedDoc = new QRadioButton(i18n("Named document:"), this);
+        hl2->addWidget(m_radioNamedDoc);
+        m_docNameEdit = new QLineEdit(this);
+        m_docNameEdit->setText(QStringLiteral("AI Response"));
+        m_docNameEdit->setEnabled(false);
+        hl2->addWidget(m_docNameEdit);
+        layout->addLayout(hl2);
     }
 
     layout->addStretch();
@@ -88,6 +112,10 @@ KateOllamaConfigPage::KateOllamaConfigPage(QWidget *parent, KateOllamaPlugin *pl
     QObject::connect(m_modelsComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &KateOllamaConfigPage::changed);
     QObject::connect(m_systemPromptEdit, &QTextEdit::textChanged, this, &KateOllamaConfigPage::changed);
     QObject::connect(m_ollamaURLText, &QLineEdit::textEdited, this, &KateOllamaConfigPage::changed);
+    QObject::connect(m_radioCurrentDoc, &QRadioButton::toggled, this, &KateOllamaConfigPage::changed);
+    QObject::connect(m_radioNamedDoc, &QRadioButton::toggled, this, &KateOllamaConfigPage::changed);
+    QObject::connect(m_radioNamedDoc, &QRadioButton::toggled, m_docNameEdit, &QLineEdit::setEnabled);
+    QObject::connect(m_docNameEdit, &QLineEdit::textEdited, this, &KateOllamaConfigPage::changed);
 }
 
 void KateOllamaConfigPage::fetchModelList()
@@ -167,18 +195,25 @@ void KateOllamaConfigPage::apply()
     group.writeEntry("Model", m_modelsComboBox->currentText());
     group.writeEntry("URL", m_ollamaURLText->text());
     group.writeEntry("SystemPrompt", m_systemPromptEdit->toPlainText());
+    group.writeEntry("ResponseToNamedDoc", m_radioNamedDoc->isChecked());
+    group.writeEntry("ResponseDocName", m_docNameEdit->text());
     group.sync();
 
     // Update the cached variables in Plugin
     m_plugin->model = m_modelsComboBox->currentText();
     m_plugin->systemPrompt = m_systemPromptEdit->toPlainText();
     m_plugin->ollamaURL = m_ollamaURLText->text();
+    m_plugin->responseToNamedDoc = m_radioNamedDoc->isChecked();
+    m_plugin->responseDocName = m_docNameEdit->text();
 }
 
 void KateOllamaConfigPage::defaults()
 {
     m_ollamaURLText->setText("http://localhost:11434");
     m_systemPromptEdit->setPlainText("You are a smart coder assistant, code comments are in the prompt language. You don't explain, you add only code comments.");
+    m_radioCurrentDoc->setChecked(true);
+    m_docNameEdit->setText(QStringLiteral("AI Response"));
+    m_docNameEdit->setEnabled(false);
 }
 
 void KateOllamaConfigPage::reset()
@@ -187,26 +222,38 @@ void KateOllamaConfigPage::reset()
     m_modelsComboBox->setCurrentText(m_plugin->model);
     m_systemPromptEdit->setPlainText(m_plugin->systemPrompt);
     m_ollamaURLText->setText(m_plugin->ollamaURL);
+    m_radioCurrentDoc->setChecked(!m_plugin->responseToNamedDoc);
+    m_radioNamedDoc->setChecked(m_plugin->responseToNamedDoc);
+    m_docNameEdit->setText(m_plugin->responseDocName);
+    m_docNameEdit->setEnabled(m_plugin->responseToNamedDoc);
 }
 
 void KateOllamaConfigPage::loadSettings()
 {
     KConfigGroup group(KSharedConfig::openConfig(), "KateOllama");
-    
+
     QString model = group.readEntry("Model");
     QString url = group.readEntry("URL");
     QString systemPrompt = group.readEntry("SystemPrompt");
+    bool responseToNamedDoc = group.readEntry("ResponseToNamedDoc", false);
+    QString responseDocName = group.readEntry("ResponseDocName", QStringLiteral("AI Response"));
 
     if (url.isEmpty()) {
         defaults();
-    } 
-    
+    }
+
     m_ollamaURLText->setText(url);
     m_systemPromptEdit->setPlainText(systemPrompt);
-    
+    m_radioCurrentDoc->setChecked(!responseToNamedDoc);
+    m_radioNamedDoc->setChecked(responseToNamedDoc);
+    m_docNameEdit->setText(responseDocName);
+    m_docNameEdit->setEnabled(responseToNamedDoc);
+
     m_plugin->systemPrompt = m_systemPromptEdit->toPlainText();
     m_plugin->ollamaURL = m_ollamaURLText->text();
     m_plugin->model = model;
+    m_plugin->responseToNamedDoc = responseToNamedDoc;
+    m_plugin->responseDocName = responseDocName;
 
     fetchModelList();
 }
