@@ -14,6 +14,8 @@
 #include <KTextEditor/SessionConfigInterface>
 #include <KTextEditor/View>
 #include <KXMLGUIClient>
+#include <QMap>
+#include <QPointer>
 #include <QString>
 
 class KateOllamaPlugin : public KTextEditor::Plugin
@@ -37,6 +39,8 @@ public:
     QString model;
     QString systemPrompt;
     QString ollamaURL;
+    bool responseToNamedDoc = false;
+    QString responseDocName = QStringLiteral("AI Response");
 };
 class KateOllamaView : public QObject, public KXMLGUIClient
 {
@@ -55,5 +59,6 @@ private slots:
 private:
     KateOllamaPlugin *m_plugin = nullptr;
     KTextEditor::MainWindow *m_mainWindow = nullptr;
+    QMap<QString, QPointer<KTextEditor::Document>> m_namedDocs;
 };
 #endif // KATEOLLAMAPLUGIN_H

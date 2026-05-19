@@ -24,6 +24,7 @@
 
 #include <QAction>
 #include <QDebug>
+#include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMenu>
@@ -72,10 +73,12 @@ KateOllamaView::KateOllamaView(KateOllamaPlugin *plugin, KTextEditor::MainWindow
 {
     KXMLGUIClient::setComponentName(QStringLiteral("kateollama"), i18n("Kate-Ollama"));
     KConfigGroup group(KSharedConfig::openConfig(), "KateOllama");
-    
+
     m_plugin->model = group.readEntry("Model");
     m_plugin->systemPrompt = group.readEntry("SystemPrompt");
     m_plugin->ollamaURL = group.readEntry("URL");
+    m_plugin->responseToNamedDoc = group.readEntry("ResponseToNamedDoc", false);
+    m_plugin->responseDocName = group.readEntry("ResponseDocName", QStringLiteral("AI Response"));
 
     auto ac = actionCollection();
     QAction *a = ac->addAction(QStringLiteral("kateollama"));
@@ -112,8 +115,48 @@ void KateOllamaView::printCommand()
 
 void KateOllamaView::ollamaRequest(QString prompt)
 {
-    KTextEditor::View *view = m_mainWindow->activeView();
-    KTextEditor::Document *document = view->document();
+    KTextEditor::View *targetView = nullptr;
+    KTextEditor::Document *targetDoc = nullptr;
+
+    if (!m_plugin->responseToNamedDoc) {
+        targetView = m_mainWindow->activeView();
+        if (!targetView) return;
+        targetDoc = targetView->document();
+    } else {
+        const QString targetName = m_plugin->responseDocName;
+
+        // Check our cached map first (handles docs created by this plugin)
+        if (m_namedDocs.contains(targetName) && m_namedDocs[targetName]) {
+            targetDoc = m_namedDocs[targetName];
+            m_mainWindow->activateView(targetDoc);
+            targetView = m_mainWindow->activeView();
+        }
+
+        // Search all open documents by name
+        if (!targetDoc) {
+            const auto docs = KTextEditor::Editor::instance()->documents();
+            for (auto *doc : docs) {
+                if (doc->documentName() == targetName) {
+                    targetDoc = doc;
+                    m_namedDocs[targetName] = doc;
+                    m_mainWindow->activateView(targetDoc);
+                    targetView = m_mainWindow->activeView();
+                    break;
+                }
+            }
+        }
+
+        // Create a new document named after targetName.
+        // Opening a non-existent local path gives the document that filename as its title.
+        if (!targetDoc) {
+            QUrl namedUrl = QUrl::fromLocalFile(QDir::tempPath() + QLatin1Char('/') + targetName);
+            targetView = m_mainWindow->openUrl(namedUrl);
+            if (!targetView) return;
+            targetDoc = targetView->document();
+            m_namedDocs[targetName] = targetDoc;
+        }
+    }
+
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
 
     QNetworkRequest request(QUrl(m_plugin->ollamaURL + "/api/generate"));
@@ -128,8 +171,8 @@ void KateOllamaView::ollamaRequest(QString prompt)
     QNetworkReply *reply = manager->post(request, doc.toJson());
 
     connect(reply, &QNetworkReply::metaDataChanged, this, [=]() {
-        KTextEditor::Cursor cursor = view->cursorPosition();
-        document->insertText(cursor, "\n");
+        KTextEditor::Cursor cursor = targetView->cursorPosition();
+        targetDoc->insertText(cursor, "\n");
         showMessage(QStringLiteral("Info: Request started..."), MessageType::Info, m_mainWindow);
     });
 
@@ -140,9 +183,8 @@ void KateOllamaView::ollamaRequest(QString prompt)
 
         if (jsonObj.contains("response")) {
             QString responseText = jsonObj["response"].toString();
-
-            KTextEditor::Cursor cursor = view->cursorPosition();
-            document->insertText(cursor, responseText);
+            KTextEditor::Cursor cursor = targetView->cursorPosition();
+            targetDoc->insertText(cursor, responseText);
         }
     });
 
@@ -155,8 +197,10 @@ void KateOllamaView::ollamaRequest(QString prompt)
         }
         reply->deleteLater();
 
-        KTextEditor::Cursor cursor = view->cursorPosition();
-        document->insertText(cursor, "\n");
+        KTextEditor::Cursor cursor = targetView->cursorPosition();
+        targetDoc->insertText(cursor, "\n");
+
+        m_mainWindow->activateView(targetDoc);
     });
 }
 
